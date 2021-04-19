@@ -25,7 +25,8 @@ out/
 **/target
 *dummy*
 ObjectStore
-maven-wrapper.jar
+**/temp
+#maven-wrapper.jar
 node_modules/
 node/
 
