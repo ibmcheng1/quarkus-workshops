@@ -1,0 +1,274 @@
+
+[root@camions-inf opt]# cd  quarkus-workshops/quarkus-workshop-super-heroes/super-heroes
+[root@camions-inf super-heroes]# cd rest-hero/
+[root@camions-inf rest-hero]# ./mvnw quarkus:add-extension -Dextensions="openshift"
+-bash: ./mvnw: Permission denied
+[root@camions-inf rest-hero]# chmod 777 mvnw
+[root@camions-inf rest-hero]# ./mvnw quarkus:add-extension -Dextensions="openshift"
+which: no javac in (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin)
+which: no java in (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin)
+Error: JAVA_HOME is not defined correctly.
+  We cannot execute
+
+  =======================================
+  
+// download JDK 
+wget get https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.10+9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.10_9.tar.gz
+ 
+tar -xzvf OpenJDK11U-jdk_x64_linux_hotspot_11.0.10_9.tar.gz
+export JAVA_HOME=/opt/jdk-11.0.10+9
+
+---
+[root@camions-inf opt]# export JAVA_HOME=/opt/jdk-11.0.10+9
+[root@camions-inf opt]# $JAVA_HOME/bin/java -version
+openjdk version "11.0.10" 2021-01-19
+OpenJDK Runtime Environment AdoptOpenJDK (build 11.0.10+9)
+OpenJDK 64-Bit Server VM AdoptOpenJDK (build 11.0.10+9, mixed mode)
+---
+
+=======================================
+cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/super-heroes
+=======================================
+ 
+ // graalvm 
+(https://www.graalvm.org/reference-manual/native-image/)  
+  
+yum install -y gcc glibc-devel zlib-devel
+wget get https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.0.0.2/graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz
+tar -xzvf graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz 
+export GRAALVM_HOME=/opt/graalvm-ce-java11-21.0.0.2
+
+$GRAALVM_HOME/bin/gu install native-image
+
+$GRAALVM_HOME/bin/native-image --version
+> GraalVM Version 21.0.0.2 (Java Version 11.0.10+8-jvmci-21.0-b06)
+---
+
+[root@camions-inf opt]# export GRAALVM_HOME=/opt/graalvm-ce-java11-21.0.0.2
+[root@camions-inf opt]# $GRAALVM_HOME/bin/native-image --version
+-bash: /opt/graalvm-ce-java11-21.0.0.2/bin/native-image: No such file or directory
+[root@camions-inf opt]#
+[root@camions-inf opt]# gu install native-image
+-bash: gu: command not found
+[root@camions-inf opt]# $GRAALVM_HOME/bin/gu install native-image
+Downloading: Component catalog from www.graalvm.org
+Processing Component: Native Image
+Downloading: Component native-image: Native Image  from github.com
+Installing new component: Native Image (org.graalvm.native-image, version 21.0.0.2)
+[root@camions-inf opt]# $GRAALVM_HOME/bin/native-image --version
+GraalVM Version 21.0.0.2 (Java Version 11.0.10+8-jvmci-21.0-b06)
+
+---
+
+====================================
+
+Deploying microservices
+
+====================================
+// Then, deploy the microservices with:
+//
+oc login
+oc project quarkus-workshop
+cd rest-hero
+chmod 777 mvnw
+./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+cd ../rest-villain
+chmod 777 mvnw
+./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+--------------------------------
+// mvn with -DskipTests
+$ ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+
+------
+// install maven
+cd /opt
+wget get https://mirrors.gigenet.com/apache/maven/maven-3/3.8.1/binaries/apache-maven-3.8.1-bin.tar.gz
+tar -xzvf apache-maven-3.8.1-bin.tar.gz
+export MAVEN_HOME=/opt/apache-maven-3.8.1
+export PATH=$MAVEN_HOME/bin:$PATH
+
+------
+//  build required extention
+------ 
+//From the root directory of the extension, run:
+
+cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/extensions/extension-banner
+mvn clean install
+
+
+------
+oc login
+oc project quarkus-workshop
+cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/super-heroes/rest-fight
+cd rest-fight
+chmod 777 mvnw
+./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+oc expose svc rest-fight --hostname=rest-fight-quarkus-workshop.apps.camions.cp.fyre.ibm.com
+
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  49.642 s
+[INFO] Finished at: 2021-04-17T15:46:53-07:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project rest-fight: Could not resolve dependencies for project io.quarkus.workshop.super-heroes:rest-fight:jar:01: Could not find artifact io.quarkus.workshop.super-heroes:extension-banner:jar:1.0 in central (https://repo.maven.apache.org/maven2) -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+
+##########################
+Running the Default Health Check
+##########################
+
+To check that the smallrye-health extension is working as expected, access using your browser or cURL:
+HOSTNAME=rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com
+HOSTNAME=rest-villain-quarkus-workshop.apps.camions.cp.fyre.ibm.com
+HOSTNAME=rest-fight-quarkus-workshop.apps.camions.cp.fyre.ibm.com
+
+curl http://rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com/health/live
+curl http://rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com/health/ready
+curl http://rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com/health
+
+curl http://rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com/openapi
+
+
+curl -H "Accept: application/json" http://rest-hero-quarkus-workshop.apps.camions.cp.fyre.ibm.com/metrics/application 
+
+
+
+##########################
+OpenShift Pipeline
+##########################
+
+oc login --token=sha256~uAGmdCPRPwjq0DCaRgmfTIjzUTZSTj3Mn8VAX8Y1iGw --server=https://api.camions.cp.fyre.ibm.com:6443
+
+oc login -u admin -p admin https://api.camions.cp.fyre.ibm.com:6443
+
+oc apply -f iac/openshift/ -n cheng1-test
+
+
+#######################
+Maven
+#######################
+https://stackoverflow.com/questions/50104172/could-not-find-or-load-main-class-org-apache-maven-wrapper-mavenwrappermain
+
+mvn -N io.takari:maven:wrapper
+
+
+########################
+
+oc delete pod ibm-cp4a-operator-66c59c95c5-w6ttr -n cp4auto --grace-period=0 --force
+
+#######################
+
+[root@camions-inf rest-fight]# history
+    1  cd /opt
+    2  wget get https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.10+9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.10_9.tar.gz
+    3  tar -xzvf OpenJDK11U-jdk_x64_linux_hotspot_11.0.10_9.tar.gz
+    4  export JAVA_HOME=/opt/jdk-11.0.10+9
+    5  $JAVA_HOME/bin/java -version
+    6  cd  /opt/quarkus-workshops/quarkus-workshop-super-heroes/super-heroes
+    7  ls -l
+    8  cd rest-hero
+    9  ./mvnw quarkus:add-extension -Dextensions="openshift"
+   10  yum install -y install build-essential libz-dev zlib1g-dev
+   11  yum install -y build-essential libz-dev zlib1g-dev
+   12  yum install -y gcc glibc-devel zlib-devel
+   13  wget get https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.0.0.2/graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz
+   14  unzip graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz
+   15  ls -l
+   16  mv graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz /opt/
+   17  pwd
+   18  cd /opt/
+   19  unzip graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz
+   20  tar -xzvf graalvm-ce-java11-linux-amd64-21.0.0.2.tar.gz
+   21  export GRAALVM_HOME=/opt/graalvm-ce-java11-21.0.0.2
+   22  $GRAALVM_HOME/bin/native-image --version
+   23  gu install native-image
+   24  $GRAALVM_HOME/bin/gu install native-image
+   25  $GRAALVM_HOME/bin/native-image --version
+   26  which mvn
+   27  cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/super-heroes
+   28  cd rest-hero/
+   29  ./mvnw quarkus:add-extension -Dextensions="openshift"
+   30  cd ../rest-villain
+   31  ./mvnw quarkus:add-extension -Dextensions="openshift"
+   32  chmod 777 mvnw
+   33  ./mvnw quarkus:add-extension -Dextensions="openshift"
+   34  cd ..
+   35  oc project
+   36  cd rest-hero/
+   37  $ ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+   38  ls
+   39  ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+   40   cd ../rest-villain
+   41  ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+   42  oc apply -f - <<EOF
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://fights-database:5432/fights-database"
+    rest-hero: "http://rest-hero:8083"
+    rest-villain: "http://rest-villain:8084"
+    kafka: "my-kafka-kafka-bootstrap:9092"
+kind: ConfigMap
+metadata:
+    name: fight-config
+EOF
+
+   43  cd ../rest-fight
+   44  ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+   45  chmod 777 mvnw
+   46  ./mvnw package -Dquarkus.kubernetes.deploy=true -DskipTests
+   47  cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/extensions/extension-banner
+   48  mvn clean install
+   49  $JAVA_HOME/bin/java -version
+   50  export MAVEN_HOME=/opt/apache-maven-3.8.1
+   51  export PATH=$MAVEN_HOME/bin:$PATH
+   52  mvn clean install
+   53  cd /opt/quarkus-workshops/quarkus-workshop-super-heroes/super-heroes/rest-fight
+   54  ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+   55  cd ..
+   56  pwd
+   57  mvn io.quarkus:quarkus-maven-plugin:1.13.0.Final:create     -DprojectGroupId=io.quarkus.workshop.super-heroes     -DprojectArtifactId=rest-hero     -D           className="io.quarkus.workshop.superheroes.hero.HeroResource"     -Dpath="api/heroes"
+   58  cd rest-hero/
+   59  ./mvnw quarkus:add-extension -Dextensions="jdbc-postgresql,hibernate-orm-panache,hibernate-validator,resteasy-jsonb"
+   60  ./mvnw quarkus:add-extension -Dextensions="smallrye-openapi"
+   61  cd ..
+   62  cd /opt/quarkus-workshops/quarkus-workshop-super-heroes
+   63  mvn package
+   64  mvn package -DskipTests
+   65  cd super-heroes/rest-fight/
+   66  ./mvnw quarkus:add-extension -Dextensions="rest-client"
+   67  ./mvnw quarkus:add-extension -Dextensions="smallrye-fault-tolerance"
+   68  ./mvnw quarkus:add-extension -Dextensions="health"
+   69  cd ..
+   70  cd rest-hero/
+   71  ./mvnw quarkus:add-extension -Dextensions="health"
+   72  ./mvnw quarkus:add-extension -Dextensions="metrics"
+   73  oc get configmap
+   74  ./mvnw quarkus:add-extension -Dextensions="openshift"
+   75  oc get deployments
+   76  oc get rs
+   77  oc get dc
+   78  oc delete dc rest-fight rest-hero
+   79  ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+   80  oc get dc
+   81  oc get pods
+   82  cd ../rest-fight/
+   83  ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+   84  oc get pods
+   85  oc expose svc rest-fight --hostname=rest-fight-quarkus-workshop.apps.camions.cp.fyre.ibm.com
+   86  history
+
+
+
+
+ 
+ 
+ 
+ 
+ 

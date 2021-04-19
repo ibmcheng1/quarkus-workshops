@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template deploys a private api on OpenShift
+Parameters:
+  ApiName:
+    Type: String
+    Description: A name to apply to all resources
+  OcpRoute:
+    Type: String
+    Description: The hostname of the route to use as the backend for OpenShift application
+Resources:
+  api:
+    Type: AWS::ApiGateway::RestApi
+    Properties: 
+      Description: A basic Rest API
+      EndpointConfiguration: 
+        Types:
+        - PRIVATE
+        VpcEndpointIds:
+        - !ImportValue ApiGwEndpoint
+      Name: !Sub "${AWS::StackName}-${ApiName}"
+      Policy: !Sub 
+      - |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "execute-api:Invoke",
+                    "Resource": "execute-api:/*"
+                },
+                {
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Action": "execute-api:Invoke",
+                    "Resource": "execute-api:/*",
+                    "Condition": {
+                        "StringNotEquals": {
+                            "aws:sourceVpce": "${vpce}"
+                        }
+                    }
+                }
+            ]
+        }
+      - vpce: !ImportValue ApiGwEndpoint
+      Tags: 
+        - Key: owner
+          Value: ccoe
+  rootGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !GetAtt api.RootResourceId
+      RestApiId: !Ref api
+      AuthorizationType: NONE
+      Integration:
+        Type: HTTP
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+        - StatusCode: 200
+        ConnectionType: VPC_LINK
+        ConnectionId: !ImportValue ApiGwVpcLink
+        Uri: !Sub "http://${OcpRoute}/v1/greeting/"
+      MethodResponses:
+      - StatusCode: 200
+        ResponseModels:
+          application/json: Empty
+  hostInfo:
+    Type: AWS::ApiGateway::Resource
+    Properties: 
+      ParentId: !GetAtt 
+      - api
+      - RootResourceId
+      PathPart: hostinfo
+      RestApiId: !Ref api
+  hostInfoGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref hostInfo
+      RestApiId: !Ref api
+      AuthorizationType: NONE
+      Integration:
+        Type: HTTP
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+        - StatusCode: 200
+        ConnectionType: VPC_LINK
+        ConnectionId: !ImportValue ApiGwVpcLink
+        Uri: !Sub "http://${OcpRoute}/v1/hostinfo/"
+      MethodResponses:
+      - StatusCode: 200
+        ResponseModels:
+          application/json: Empty
+  Deployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId: !Ref api
+      Description: My deployment
+      StageName: '{{resolve:ssm:/delta/account/environment:1}}'
+    DependsOn:
+    - rootGET
+    - hostInfoGET
+Outputs:
+  ApiCurl:
+    Description: The Url to hit your API
+    Value: !Sub 
+    - "curl -X GET -H 'x-apigw-api-id:${apiId}' https://${domain}/${stage}/"
+    - apiId: !Ref api
+      domain: !ImportValue ApiGwEndpointDNS
+      stage: '{{resolve:ssm:/delta/account/environment:1}}' 
+    Export:
+      Name: !Sub "${AWS::StackName}-${ApiName}-curl"

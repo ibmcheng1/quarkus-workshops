@@ -1,0 +1,473 @@
+[[cloud-open-shift]]
+= Open Shift
+:icons: font
+
+'''
+
+This chapter explores how you can deploy Quarkus applications on OpenShift.
+
+== Deploying on OpenShift
+
+This section is going to deploy our microservices on OpenShift.
+It is required to have access to an OpenShift cluster.
+
+We recommend using a specific namespace to deploy your system.
+In the following sections, we use the `quarkus-workshop` namespace.
+
+[source, shell]
+----
+$ oc login
+$ oc new-project quarkus-workshop \
+    --description="This is the project for the Quarkus microservices workshop" \
+    --display-name="Quarkus Workshop"
+
+----
+
+=== Deploying the infrastructure
+
+The first thing to deploy is the required infrastructure:
+
+* 3 PostgreSQL instances
+* Kafka brokers (3 brokers with 3 Zookeeper to follow the recommended approach)
+
+There are many ways to deploy this infrastructure.
+Here, we are going to use two operators:
+
+* PostgreSQL Operator by Dev4Ddevs.com
+* Strimzi Apache Kafka Operator by Red Hat
+
+Find the available operators in the catalog using the following search
+[source, shell]
+----
+$ oc get packagemanifests -n openshift-marketplace |egrep -i '(kafka|postgres)'
+crunchy-postgres-operator                            Certified Operators   3d22h
+postgresql                                           Community Operators   3d22h
+postgresql-operator-dev4devs-com                     Community Operators   3d22h
+crunchy-postgres-operator-rhmp                       Red Hat Marketplace   3d22h
+cloud-native-postgresql                              Certified Operators   3d22h
+strimzi-kafka-operator                               Community Operators   3d22h
+----
+
+The operators we want to install are the `postgresql-operator-dev4devs-com` and the `strimzi-kafka-operator` operators. The
+operator's catalog source is identified in the second column. The following command provides the identifier of the operator's 
+catalog source. Both operators use the same catalog source.
+
+[source, shell]
+----
+$ oc get packagemanifests -n openshift-marketplace -o jsonpath='{.status.catalogSource}{"\n"}' strimzi-kafka-operator
+community-operators
+----
+
+Next, the available subscription channels for the operators will be needed.
+
+[source, shell]
+----
+$ oc get packagemanifest -o jsonpath='{range .status.channels[*]}{.name}{"\n"}{end}{"\n"}' -n community-operators strimzi-kafka-operator
+stable
+strimzi-0.19.x
+strimzi-0.20.x
+strimzi-0.21.x
+strimzi-0.22.x
+
+$ oc get packagemanifest -o jsonpath='{range .status.channels[*]}{.name}{"\n"}{end}{"\n"}' -n community-operators postgresql-operator-dev4devs-com
+alpha
+----
+The `strimzi-0.22.x` and the `alpha` channels will be used.
+To install an operator in a specific project, you need to create first an OperatorGroup in the target namespace. An OperatorGroup 
+is an OLM resource that selects target namespaces in which to generate required RBAC access for all Operators in the same namespace 
+as the OperatorGroup. 
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: quarkus-workshop
+  namespace: quarkus-workshop
+spec:
+  targetNamespaces:
+  - quarkus-workshop
+EOF
+----
+
+Next, subscriptions will need to be created for the two operators.
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: postgresql-operator-dev4devs-coml
+  namespace: quarkus-workshop
+spec:
+  channel: "alpha"
+  name: postgresql-operator-dev4devs-com
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+EOF
+----
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: strimzi-kafka-operator
+  namespace: quarkus-workshop
+spec:
+  channel: "strimzi-0.22.x"
+  name: strimzi-kafka-operator
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+EOF
+----
+
+Once installed, you will want to use the operators to setup the infrastructure. All the capabilities of the newly installed operators are described in the ClusterServiceVersion (CSV) created automatically by the Operator Lifecycle Manager (OLM).
+
+[source, shell]
+----
+$ oc get csv
+NAME                               DISPLAY                                VERSION   REPLACES   PHASE
+postgresql-operator.v0.1.1         PostgreSQL Operator by Dev4Ddevs.com   0.1.1                Succeeded
+strimzi-cluster-operator.v0.22.1   Strimzi                                0.22.1               Succeeded
+----
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+With these operators installed, you can create the required infrastructure with the following custom resource definition (CRD):
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: heroes-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: heroes-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superman
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superman
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: centos/postgresql-96-centos7
+    size: 1
+EOF
+----
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: villains-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: villains-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superbad
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superbad
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: centos/postgresql-96-centos7
+    size: 1
+EOF
+----
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: fights-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: fights-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superfight
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superfight
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: centos/postgresql-96-centos7
+    size: 1
+EOF
+----
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+These CRDs create the databases for the Hero, Villain, and Fight microservices.
+Duplicate this CRD for the fight and villain databases.
+
+For the Kafka broker, create the following CRD:
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: kafka.strimzi.io/v1beta1
+kind: Kafka
+metadata:
+  name: my-kafka
+  namespace: quarkus-workshop
+spec:
+  kafka:
+    version: 2.7.0
+    replicas: 3
+    listeners:
+      plain: {}
+      tls: {}
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      log.message.format.version: '2.3'
+    storage:
+      type: ephemeral
+  zookeeper:
+    replicas: 3
+    storage:
+      type: ephemeral
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+EOF
+----
+
+This CRD creates the brokers and the Zookeeper instances.
+
+It's also recommended to create the topic.
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+For this, create the following CRD:
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: kafka.strimzi.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: fights
+  labels:
+    strimzi.io/cluster: my-kafka
+  namespace: quarkus-workshop
+spec:
+  partitions: 1
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: 1073741824
+EOF
+----
+
+Once everything is created, you should have the following resources:
+
+[source,shell]
+----
+$ oc get pods
+NAME                                               READY   STATUS    RESTARTS   AGE
+fights-database-6d55f6cfcd-n4rpk                   1/1     Running   0          4m1s
+heroes-database-7dc4d6b9b9-hdrtk                   1/1     Running   0          12m
+my-kafka-kafka-0                                   1/1     Running   0          29s
+my-kafka-kafka-1                                   1/1     Running   0          29s
+my-kafka-kafka-2                                   1/1     Running   0          29s
+my-kafka-zookeeper-0                               1/1     Running   0          86s
+my-kafka-zookeeper-1                               1/1     Running   0          86s
+my-kafka-zookeeper-2                               1/1     Running   0          86s
+postgresql-operator-695df466f5-bjnzd               1/1     Running   0          16m
+strimzi-cluster-operator-v0.22.1-bd7d795c6-9zkqh   1/1     Running   0          15m
+villains-database-5467588ddf-2lrdp                 1/1     Running   0          4m18s
+
+----
+
+=== Deploying the Hero & Villain microservices
+
+Now that the infrastructure is in place, we can deploy our microservices.
+Let's start with the hero and villain microservices.
+
+For each, we need to override the port and data source URL.
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+Create config maps with the following content:
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://heroes-database:5432/heroes-database"
+kind: ConfigMap
+metadata:
+    name: hero-config
+EOF
+----
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://villains-database:5432/villains-database"
+kind: ConfigMap
+metadata:
+    name: villain-config
+EOF
+----
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+Do this for the hero and villain microservices.
+
+Once the config maps are created, we can deploy the microservices.
+
+The microservices will need to have the OpenShift extension added to the 'pom.xml'.
+
+[source, shell]
+----
+$ cd superheros
+$ cd rest-hero
+$ ./mvnw quarkus:add-extension -Dextensions="openshift"
+$ cd ../rest-villain
+$ ./mvnw quarkus:add-extension -Dextensions="openshift"
+$ cd ..
+
+----
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+Update the hero microservice application.properties with the following content:
+
+[source,yaml]
+----
+include::{github-raw}/super-heroes/rest-hero/src/main/resources/application.properties[tag=adocOCPJDK]
+
+include::{github-raw}/super-heroes/rest-hero/src/main/resources/application.properties[tag=adocOCPRoute]
+
+include::{github-raw}/super-heroes/rest-hero/src/main/resources/application.properties[tag=adocOCPConfigMap]
+
+include::{github-raw}/super-heroes/rest-hero/src/main/resources/application.properties[tag=adocOCPPorts]
+
+----
+
+These changes do the following:
+
+1. Point to the JDK container image to use for the microservice
+2. Expose an OCP route for the microservice
+3. Use a ConfigMap for container environment variables to override the HTTP port and JDBC URL to be used
+4. Set up the ports to be used by the service
+
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+Update the villain microservice application.properties with the following content:
+
+[source,yaml]
+----
+include::{github-raw}/super-heroes/rest-villain/src/main/resources/application.properties[tag=adocOCPJDK]
+
+include::{github-raw}/super-heroes/rest-villain/src/main/resources/application.properties[tag=adocOCPRoute]
+
+include::{github-raw}/super-heroes/rest-villain/src/main/resources/application.properties[tag=adocOCPConfigMap]
+
+include::{github-raw}/super-heroes/rest-villain/src/main/resources/application.properties[tag=adocOCPPorts]
+----
+
+Then, deploy the microservices with:
+
+[source,shell]
+----
+$ oc login
+$ oc project quarkus-workshop
+$ cd rest-hero
+$ ./mvnw clean package -Dquarkus.kubernetes.deploy=true
+$ cd ../rest-villain
+$ ./mvnw clean package -Dquarkus.kubernetes.deploy=true
+----
+
+=== Deploying the Fight microservice
+
+Follow the same approach for the fight microservice.
+Note that there are more properties to configure from the config map:
+
+* the location of the hero and villain microservice
+* the location of the Kafka broker.
+
+[source, shell]
+----
+oc apply -f - <<EOF
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://fights-database:5432/fights-database"
+    rest-hero: "http://rest-hero:8083"
+    rest-villain: "http://rest-villain:8084"
+    kafka: "my-kafka-kafka-bootstrap:9092"
+kind: ConfigMap
+metadata:
+    name: fight-config
+EOF
+----
+
+Once the config map is created, we can deploy the microservice.
+
+The microservice will need to have the OpenShift extension added to the 'pom.xml'.
+
+[source, shell]
+----
+$ cd superheros
+$ cd rest-fight
+$ ./mvnw quarkus:add-extension -Dextensions="openshift"
+
+
+----
+icon:hand-o-right[role="red", size=2x] [red big]#Call to action#
+
+Update the fight microservice application.properties with the following content:
+
+[source,yaml]
+----
+include::{github-raw}/super-heroes/rest-fight/src/main/resources/application.properties[tag=adocOCPJDK]
+
+include::{github-raw}/super-heroes/rest-fight/src/main/resources/application.properties[tag=adocOCPRoute]
+
+include::{github-raw}/super-heroes/rest-fight/src/main/resources/application.properties[tag=adocOCPConfigMap]
+
+include::{github-raw}/super-heroes/rest-fight/src/main/resources/application.properties[tag=adocOCPPorts]
+
+----
+
+These changes do the following:
+
+1. Point to the JDK container image to use for the microservice
+2. Expose an OCP route for the microservice
+3. Use a ConfigMap for container environment variables to override the JDBC URL to be used
+4. Set up the ports to be used by the service
+
+Then, deploy the microservices with:
+
+[source,shell]
+----
+$ oc login
+$ oc project quarkus-workshop
+$ cd rest-fight
+$ ./mvnw clean package -Dquarkus.kubernetes.deploy=true
+----
+
+Once everything is configured and deployed, your system is now running on Kubernetes.

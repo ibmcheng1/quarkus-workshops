@@ -1,0 +1,105 @@
+﻿STEP-PREP-BUILD
+
++ git clone -b main --single-branch https://github.com/ibmcheng1/quarkus-workshops.git /workspace/source
+Cloning into '/workspace/source'...
++ cd /workspace/source
+++ git rev-parse HEAD
++ echo 568767544376220e078a8074f79d2c385c86231b
++ cat /workspace/git-sha.out
+568767544376220e078a8074f79d2c385c86231b
++ echo /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-11-openjdk/bin
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-11-openjdk/bin
++ id
+uid=1000600000(1000600000) gid=0(root) groups=0(root),1000600000
++ whoami
+1000600000
++ ls -la
+total 4
+drwxr-sr-x. 3 1000600000 1000600000 35 Apr 19 03:24 .
+drwxrwsrwx. 3 root 1000600000 39 Apr 19 03:24 ..
+drwxr-sr-x. 8 1000600000 1000600000 163 Apr 19 03:24 .git
+-rw-r--r--. 1 1000600000 1000600000 19 Apr 19 03:24 README.md
+
+STEP-BUILD-SOURCES
+
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-11-openjdk/bin
++ echo /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-11-openjdk/bin
++ id
+uid=1000600000(1000600000) gid=0(root) groups=0(root),1000600000
++ whoami
+1000600000
++ ls -la
+total 4
+drwxr-sr-x. 3 1000600000 1000600000 35 Apr 19 03:24 .
+drwxrwsrwx. 3 root 1000600000 39 Apr 19 03:24 ..
+drwxr-sr-x. 8 1000600000 1000600000 163 Apr 19 03:24 .git
+-rw-r--r--. 1 1000600000 1000600000 19 Apr 19 03:24 README.md
++ MVN_ARGS='-DskipTests -Dmaven.wagon.http.ssl.insecure=true -DappName=app'
++ case quarkus-jvm in
+
+STEP-BUILD-IMAGE
+
++ echo /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++ id
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+uid=1000600000 gid=0(root) groups=0(root),1000600000
++ ls -la
+total 4
+drwxr-sr-x. 3 1000600000 1000600000 35 Apr 19 03:24 .
+drwxrwsrwx. 3 root 1000600000 39 Apr 19 03:24 ..
+drwxr-sr-x. 8 1000600000 1000600000 163 Apr 19 03:24 .git
+-rw-r--r--. 1 1000600000 1000600000 19 Apr 19 03:24 README.md
++ echo 'context.taskRun.namespace = cheng1-test'
+context.taskRun.namespace = cheng1-test
+++ id -u
++ echo 'tekton:x:1000600000:0:tekton user:/tekton/home:/sbin/nologin'
+++ id -u
++ echo 1000600000:1100000000:65536
+++ id -u
++ echo 1000600000:1100000000:65536
++ export BUILDAH_ISOLATION=chroot
++ BUILDAH_ISOLATION=chroot
++ mkdir -p /tekton/home/.config/containers
++ echo '[storage]'
++ echo 'driver="vfs"'
+++ basename https://github.com/ibmcheng1/quarkus-workshops.git
+++ cut -d. -f1
++ APP_NAME=quarkus-workshops
+++ cat /workspace/git-sha.out
++ SHA=568767544376220e078a8074f79d2c385c86231b
++ DESTINATION_IMAGE=image-registry.openshift-image-registry.svc:5000/cheng1-test/quarkus-workshops:latest
++ echo 'APP_NAME = quarkus-workshops'
+APP_NAME = quarkus-workshops
+SHA = 568767544376220e078a8074f79d2c385c86231b
++ echo 'SHA = 568767544376220e078a8074f79d2c385c86231b'
+DESTINATION_IMAGE = image-registry.openshift-image-registry.svc:5000/cheng1-test/quarkus-workshops:latest
++ echo 'DESTINATION_IMAGE = image-registry.openshift-image-registry.svc:5000/cheng1-test/quarkus-workshops:latest'
+
+STEP-PUSH-IMAGE
+
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++ echo /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++ id
+uid=1000600000 gid=0(root) groups=0(root),1000600000
++ ls -la
+total 4
+drwxr-sr-x. 3 1000600000 1000600000 35 Apr 19 03:24 .
+drwxrwsrwx. 3 root 1000600000 39 Apr 19 03:24 ..
+drwxr-sr-x. 8 1000600000 1000600000 163 Apr 19 03:24 .git
+-rw-r--r--. 1 1000600000 1000600000 19 Apr 19 03:24 README.md
+context.taskRun.namespace = cheng1-test
++ echo 'context.taskRun.namespace = cheng1-test'
+++ id -u
++ echo 'tekton:x:1000600000:0:tekton user:/tekton/home:/sbin/nologin'
+++ id -u
++ echo 1000600000:1100000000:65536
+++ id -u
++ echo 1000600000:1100000000:65536
++ export BUILDAH_ISOLATION=chroot
++ BUILDAH_ISOLATION=chroot
+++ cat /workspace/git-sha.out
++ SHA=568767544376220e078a8074f79d2c385c86231b
+++ cut -d. -f1
+++ basename https://github.com/ibmcheng1/quarkus-workshops.git
++ APP_NAME=quarkus-workshops
++ DESTINATION_IMAGE=image-registry.openshift-image-registry.svc:5000/cheng1-test/quarkus-workshops

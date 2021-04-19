@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template deploys the prerequisites for API Gateway work
+Parameters:
+  OcpIngressNLB:
+    Type: String
+    Description: The ARN of the Network Load Balancer being used for OpenShift Ingress
+Resources:
+  securityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Retain
+    Properties:
+      GroupDescription: Allows access from Delta network to api endpoint
+      GroupName: api-gw-endpoint-access
+      SecurityGroupIngress:
+      - FromPort: 80
+        IpProtocol: tcp
+        CidrIp: 10.0.0.0/8
+        ToPort: 80
+      - FromPort: 443
+        IpProtocol: tcp
+        CidrIp: 10.0.0.0/8
+        ToPort: 443
+      SecurityGroupEgress:
+      - IpProtocol: '-1'
+        CidrIp: 0.0.0.0/0
+      VpcId: '{{resolve:ssm:/delta/vpc/vpcid:1}}'
+  apiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Retain
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 'execute-api:Invoke'
+            Resource:
+              - '*'
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+      - !Ref securityGroup
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.execute-api"
+      SubnetIds:
+      - '{{resolve:ssm:/delta/vpc/privatesubnet1aid:1}}'
+      - '{{resolve:ssm:/delta/vpc/privatesubnet2aid:1}}'
+      - '{{resolve:ssm:/delta/vpc/privatesubnet3aid:1}}'
+      VpcEndpointType: Interface
+      VpcId: !ImportValue DefaultVPCId
+  vpclink:
+    Type: AWS::ApiGateway::VpcLink
+    DeletionPolicy: Retain
+    Properties: 
+      Description: Provides connection to private endpoints
+      Name: ccoe-dev-ocp
+      TargetArns: 
+        - !Ref OcpIngressNLB
+Outputs:
+  ApiEndpointId:
+    Description: Id of the VPC Endpoint for use with APIs
+    Value: !Ref apiEndpoint
+    Export:
+      Name: ApiGwEndpoint
+  ApiEndpointDNS: 
+    Description: DNS Name associated with the VPC Endpoint
+    Value: !Select [1, !Split [":", !Select [ 0, !GetAtt apiEndpoint.DnsEntries ]]]
+    Export:
+      Name: ApiGwEndpointDNS
+  VpcLinkId:
+    Description: The Id of the VPC link that Apis will need to reference.
+    Value: !Ref vpclink
+    Export:
+      Name: ApiGwVpcLink

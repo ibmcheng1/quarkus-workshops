@@ -1,0 +1,127 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: qs-build-java
+spec:
+  stepTemplate:
+    volumeMounts:
+    - name: varlibc
+      mountPath: /var/lib/containers
+  params:
+  - name: build-type
+    type: string
+    description: "Selected build type: quarkus-jvm, quarkus-fast-jar, quarkus-native, spring-boot"
+    default: "quarkus-fast-jar"
+  - name: git-repo-url
+    type: string
+    description: "Git Repository URL"
+  - name: git-branch
+    type: string
+    description: "Git branch to checkout."
+  - name: tlsVerify
+    description: tls verify
+    type: string
+    default: "false"
+  steps:
+  - name: prep-build
+    image: image-registry.openshift-image-registry.svc:5000/openshift/delta-mandrel-builder:latest
+    imagePullPolicy: IfNotPresent
+    script: |
+      git clone -b $(params.git-branch) --single-branch $(params.git-repo-url) /workspace/source
+      cd /workspace/source
+      echo "$(git rev-parse HEAD)" > /workspace/git-sha.out
+      cat /workspace/git-sha.out
+      echo $PATH
+      id
+      whoami
+      ls -la 
+    env:
+    - name: user.home
+      value: /tekton/home
+    workingDir: "/"
+  - name: build-sources
+    image: image-registry.openshift-image-registry.svc:5000/openshift/delta-mandrel-builder:latest
+    imagePullPolicy: IfNotPresent
+    script: |
+      echo $PATH
+      id
+      whoami
+      ls -la      
+      MVN_ARGS="-DskipTests -Dmaven.wagon.http.ssl.insecure=true -DappName=app"
+      case $(params.build-type) in
+        spring-boot)
+        ;;
+        quarkus-jvm)
+        ;;
+        quarkus-fast-jar)
+        MVN_ARGS="${MVN_ARGS} -Dquarkus.package.type=fast-jar"
+        ;;
+        quarkus-native)
+        MVN_ARGS="${MVN_ARGS} -Pnative"
+        ;;
+      esac
+      ##sh ./mvnw ${MVN_ARGS} clean package
+    env:
+    - name: user.home
+      value: /tekton/home
+    workingDir: "/workspace/source"
+  - name: build-image
+    image: image-registry.openshift-image-registry.svc:5000/openshift/delta-buildah:latest
+    imagePullPolicy: IfNotPresent
+    script: |
+      echo $PATH
+      id
+      ls -la 
+      echo "context.taskRun.namespace = $(context.taskRun.namespace)"
+      echo "tekton:x:$(id -u):0:tekton user:${HOME}:/sbin/nologin" >> /etc/passwd
+      echo $(id -u):1100000000:65536 >> /etc/subuid
+      echo $(id -u):1100000000:65536 >> /etc/subgid
+      export BUILDAH_ISOLATION=chroot
+      mkdir -p ${HOME}/.config/containers
+      echo "[storage]" > ${HOME}/.config/containers/storage.conf
+      echo "driver=\"vfs\"" >> ${HOME}/.config/containers/storage.conf
+      APP_NAME=$(basename $(params.git-repo-url) | cut -d'.' -f1)    
+      SHA=$(cat /workspace/git-sha.out)
+      DESTINATION_IMAGE="image-registry.openshift-image-registry.svc:5000/$(context.taskRun.namespace)/${APP_NAME}:latest"
+      echo "APP_NAME = ${APP_NAME}"
+      echo "SHA = ${SHA}"
+      echo "DESTINATION_IMAGE = ${DESTINATION_IMAGE}"
+      ##if [[ $(params.build-type) == "quarkus-native" ]]
+      ##then
+        ##CONTAINER=$(buildah --tls-verify=$(params.tlsVerify) from image-registry.openshift-image-registry.svc:5000/openshift/ubi-minimal:latest)
+      ##else
+        ##CONTAINER=$(buildah --tls-verify=$(params.tlsVerify) from image-registry.openshift-image-registry.svc:5000/openshift/delta-jdk-11-app-runner:latest )
+      ##fi
+      ##echo "CONTAINER = ${CONTAINER}"
+
+      ##buildah config --label GIT_COMMIT=${SHA} --author="Tekton" ${CONTAINER}
+      ##buildah config --label GIT_URL=$(params.git-repo-url) ${CONTAINER}
+      ##buildah commit ${CONTAINER} ${DESTINATION_IMAGE}
+      ##buildah unmount ${CONTAINER}
+
+    env:
+    - name: user.home
+      value: /tekton/home
+    workingDir: "/workspace/source"
+  - name: push-image
+    image: image-registry.openshift-image-registry.svc:5000/openshift/delta-buildah:latest
+    imagePullPolicy: IfNotPresent
+    script: |
+      echo $PATH
+      id
+      ls -la 
+      echo "context.taskRun.namespace = $(context.taskRun.namespace)"      
+      echo "tekton:x:$(id -u):0:tekton user:${HOME}:/sbin/nologin" >> /etc/passwd
+      echo $(id -u):1100000000:65536 >> /etc/subuid
+      echo $(id -u):1100000000:65536 >> /etc/subgid
+      export BUILDAH_ISOLATION=chroot
+      SHA=$(cat /workspace/git-sha.out)
+      APP_NAME=$(basename $(params.git-repo-url) | cut -d'.' -f1)
+      DESTINATION_IMAGE="image-registry.openshift-image-registry.svc:5000/$(context.taskRun.namespace)/${APP_NAME}"
+      ##buildah push --tls-verify=$(params.tlsVerify) ${DESTINATION_IMAGE}:latest docker://${DESTINATION_IMAGE}:latest
+    env:
+    workingDir: "/workspace/source"
+  volumes:
+  - name: varlibc
+    emptyDir: {}
+
