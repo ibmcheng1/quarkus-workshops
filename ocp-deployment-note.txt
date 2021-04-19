@@ -65,6 +65,9 @@ GraalVM Version 21.0.0.2 (Java Version 11.0.10+8-jvmci-21.0-b06)
 Deploying microservices
 
 ====================================
+-->  FailedCreate: rest-villain-1 Error creating: pods "rest-villain-1-" is forbidden: unable to validate against any security context constraint: [spec.containers[0].securityContext.containers[0].hostPort: Invalid value: 8080: Host ports are not allowed to be used]
+error: update acceptor rejected rest-villain-1: pods for rc 'quarkus-workshop/rest-villain-1' took longer than 600 seconds to become available
+
 
 oc adm policy add-scc-to-user privileged -z $NAMESPACE
 oc adm policy add-scc-to-user privileged system:serviceaccount:${NAMESPACE}:default

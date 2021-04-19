@@ -66,7 +66,13 @@ spec:
       ##mvn -N io.takari:maven:wrapper
       ##sh ./mvnw quarkus:add-extension -Dextensions="openshift"
       chmod 777 mvnw
-      ./mvnw clean package -Dquarkus.kubernetes.deploy=true
+      ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests
+      cd ../rest-hero
+       chmod 777 mvnw
+      ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests     
+      cd ../rest-fight
+      chmod 777 mvnw
+      ./mvnw clean package -Dquarkus.kubernetes.deploy=true -DskipTests      
     env:
     - name: user.home
       value: /tekton/home
