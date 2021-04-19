@@ -1,0 +1,108 @@
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: heroes-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: heroes-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superman
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superman
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql-96-centos7
+    size: 1
+    
+---
+ 
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: villains-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: villains-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superbad
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superbad
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql-96-centos7
+    size: 1
+    
+---
+  
+apiVersion: postgresql.dev4devs.com/v1alpha1
+kind: Database
+metadata:
+    name: fights-database
+    namespace: quarkus-workshop
+spec:
+    databaseCpu: 30m
+    databaseCpuLimit: 60m
+    databaseMemoryLimit: 512Mi
+    databaseMemoryRequest: 128Mi
+    databaseName: fights-database
+    databaseNameKeyEnvVar: POSTGRESQL_DATABASE
+    databasePassword: superfight
+    databasePasswordKeyEnvVar: POSTGRESQL_PASSWORD
+    databaseStorageRequest: 1Gi
+    databaseUser: superfight
+    databaseUserKeyEnvVar: POSTGRESQL_USER
+    image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql-96-centos7
+    size: 1    
+ 
+---
+ 
+apiVersion: kafka.strimzi.io/v1beta1
+kind: Kafka
+metadata:
+  name: my-kafka
+  namespace: quarkus-workshop
+spec:
+  kafka:
+    version: 2.7.0
+    replicas: 3
+    listeners:
+      plain: {}
+      tls: {}
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      log.message.format.version: '2.3'
+    storage:
+      type: ephemeral
+  zookeeper:
+    replicas: 3
+    storage:
+      type: ephemeral
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+    
+---
+
+apiVersion: kafka.strimzi.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: fights
+  labels:
+    strimzi.io/cluster: my-kafka
+  namespace: quarkus-workshop
+spec:
+  partitions: 1
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: 1073741824       

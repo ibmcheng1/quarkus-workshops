@@ -65,6 +65,17 @@ GraalVM Version 21.0.0.2 (Java Version 11.0.10+8-jvmci-21.0-b06)
 Deploying microservices
 
 ====================================
+
+oc adm policy add-scc-to-user privileged -z $NAMESPACE
+oc adm policy add-scc-to-user privileged system:serviceaccount:${NAMESPACE}:default
+
+// need to verify if need to run scc commands.
+oc adm policy add-scc-to-user privileged -z quarkus-workshop
+oc adm policy add-scc-to-user privileged system:serviceaccount:quarkus-workshop:default
+
+oc rollout latest dc/rest-her
+
+
 // Then, deploy the microservices with:
 //
 oc login
@@ -155,6 +166,7 @@ oc apply -f iac/openshift/ -n cheng1-test
 Maven
 #######################
 https://stackoverflow.com/questions/50104172/could-not-find-or-load-main-class-org-apache-maven-wrapper-mavenwrappermain
+//If you have maven and you want to make maven wrapper working, you need to setup maven wrapper:
 
 mvn -N io.takari:maven:wrapper
 

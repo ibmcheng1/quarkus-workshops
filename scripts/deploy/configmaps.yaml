@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://heroes-database:5432/heroes-database"
+kind: ConfigMap
+metadata:
+    name: hero-config
+    
+---
+
+apiVersion: v1
+data:
+    database: "jdbc:postgresql://villains-database:5432/villains-database"
+kind: ConfigMap
+metadata:
+    name: villain-config    

@@ -1,6 +1,8 @@
 #!/bin/sh
 
-##docker login -u ibmcheng1 -p good44me --tls-verify=false docker.io
+yum install -y docker
+
+docker login -u ibmcheng1 -p good44me --tls-verify=false docker.io
 
 # postgresql image
 docker pull docker.io/centos/postgresql-96-centos7  
